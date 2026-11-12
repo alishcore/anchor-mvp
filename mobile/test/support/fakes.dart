@@ -199,6 +199,9 @@ class FakeApi extends ApiClient {
     return profile;
   }
 
+  @override
+  Future<List<AppNotification>> notifications() async => <AppNotification>[];
+
   // -- providers -----------------------------------------------------------
   @override
   Future<ProviderStatus> providers() async {

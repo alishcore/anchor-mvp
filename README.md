@@ -4,6 +4,26 @@
 
 # Anchor
 
+## TA5 review improvements (source changes, 2026-11-12)
+
+The new source adds **My choices** on the senior's device: cloud permission,
+sharing topics, family connections, report review/publication and memory deletion.
+Provider configuration remains on the family phone. **Prepare last week's update**
+creates or retrieves the last completed local ISO week; **I have reviewed it — share**
+uses the existing permission-checked delivery service immediately. The phone shows
+weekly updates and unread in-app reminders, with foreground polling every minute.
+There is no background push or remote-access service.
+
+The source changes must be rebuilt before demonstration. The committed
+`release/windows` executables have NOT been rebuilt by this review and do not
+contain these changes. See [demo and rebuild checklist](docs/ta5-demo-checklist.md).
+The older descriptions below and in the handover may describe earlier UI versions.
+Current personal-control behavior is documented in [the decision log](DECISIONS.md).
+
+Presentation material: [30-minute slide/script guide](docs/ta5-presentation.md).
+User testing: [protocol and blank observation forms](docs/ta5-user-test.md).
+
+
 A companion for an older adult who lives alone.
 
 It runs on two devices, on purpose. The computer in the living room is what the senior touches: one big circle, talk, listen. The phone belongs to the family. It holds the API keys and the model names, the family contacts, and the weekly digest. It never opens a microphone.

@@ -41,7 +41,10 @@ class AnchorConfig {
 
   /// Stable id of this installation, used for the "designated device" rule
   /// (one proactive invitation per day, on one device only).
-  static const String deviceId = 'anchor-win-demo-1';
+  static const String deviceId = String.fromEnvironment(
+    'ANCHOR_DEVICE_ID',
+    defaultValue: 'anchor-win-demo-1',
+  );
 }
 
 /// A demo login from `POST /api/v1/dev/login`.

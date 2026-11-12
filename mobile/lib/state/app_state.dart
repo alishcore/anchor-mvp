@@ -50,6 +50,9 @@ class AppState extends ChangeNotifier {
           onGreeting: _speak,
         );
     invitations.setGreetingPlayer(_speak);
+    final source = speaker;
+    if (source is SpeechStatusSource)
+      (source as SpeechStatusSource).playback.addListener(_speechChanged);
   }
 
   final ApiClient api;
@@ -91,6 +94,9 @@ class AppState extends ChangeNotifier {
   ActivityFeed activityFeed = ActivityFeed.empty;
   List<Digest> digests = <Digest>[];
   String digestNote = '';
+  List<AppNotification> notifications = <AppNotification>[];
+  int get unreadDigestCount =>
+      notifications.where((n) => n.kind == 'digest_ready' && n.isUnread).length;
   List<ScheduleProposal> proposals = <ScheduleProposal>[];
   CheckinSchedule schedule = CheckinSchedule.empty;
   CheckinEligibility eligibility = CheckinEligibility.unknown;
@@ -173,6 +179,15 @@ class AppState extends ChangeNotifier {
   bool digestFeatureMissing = false;
   bool contactsFeatureMissing = false;
   bool speechActive = false;
+  void _speechChanged() => notifyListeners();
+  SpeechPhase get speechPhase {
+    final source = speaker;
+    return source is SpeechStatusSource
+        ? (source as SpeechStatusSource).playback.value
+        : speechActive
+        ? SpeechPhase.preparing
+        : SpeechPhase.idle;
+  }
 
   bool get signedIn => profile != null;
 
@@ -349,6 +364,7 @@ class AppState extends ChangeNotifier {
   Future<void> _loadCaregiver() async {
     await loadRelationships();
     await loadDigests();
+    await loadNotifications();
     await loadContacts();
     await loadProposals();
     // The family sets the AI up with the older adult on the phone (2026-11-11),
@@ -404,10 +420,15 @@ class AppState extends ChangeNotifier {
       digests = list.digests;
       digestNote = list.note;
       digestFeatureMissing = false;
+      offline = false;
+      lastError = null;
       notifyListeners();
     } on ApiException catch (error) {
       _noteFeature('digests', error);
+      // Never leave an old family copy visible after a failed permission refresh.
+      if (isCaregiver) digests = <Digest>[];
       if (!error.isFeatureUnavailable) _fail(error);
+      notifyListeners();
     }
   }
 
@@ -766,13 +787,16 @@ class AppState extends ChangeNotifier {
     _lastAnchorText = text;
     speechActive = true;
     notifyListeners();
-    await speaker.speak(
-      text,
-      language: language == 'en' ? 'en-US' : 'zh-CN',
-      slow: preferences?.isSlowPace ?? true,
-    );
-    speechActive = false;
-    notifyListeners();
+    try {
+      await speaker.speak(
+        text,
+        language: language == 'en' ? 'en-US' : 'zh-CN',
+        slow: preferences?.isSlowPace ?? true,
+      );
+    } finally {
+      speechActive = false;
+      notifyListeners();
+    }
   }
 
   /// Speaks one short sentence for the Play screen: the story of a card, the
@@ -1205,6 +1229,86 @@ class AppState extends ChangeNotifier {
     await speakFeedback(gradeActivity(l, item, index).spoken);
   }
 
+  Future<void> loadNotifications() async {
+    if (!isCaregiver) return;
+    try {
+      notifications = await api.notifications();
+      notifyListeners();
+    } on ApiException catch (error) {
+      if (!error.isFeatureUnavailable) _fail(error);
+    }
+  }
+
+  Future<bool> markNotificationRead(int id) async {
+    try {
+      await api.markNotificationRead(id);
+      await loadNotifications();
+      return true;
+    } on ApiException catch (error) {
+      _fail(error);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> generateDigest() async {
+    if (!isSenior) return false;
+    try {
+      final generated = await api.generateDigest();
+      digests = [generated, ...digests.where((d) => d.id != generated.id)];
+      lastError = null;
+      notifyListeners();
+      return true;
+    } on ApiException catch (error) {
+      _fail(error);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> publishDigest(Digest digest) async {
+    if (!isSenior) return false;
+    try {
+      final published = await api.publishDigest(digest.id);
+      digests = digests
+          .map((d) => d.id == published.id ? published : d)
+          .toList();
+      lastError = null;
+      notifyListeners();
+      return true;
+    } on ApiException catch (error) {
+      _fail(error);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> stopAllSharing() async {
+    if (!isSenior) return false;
+    try {
+      consent = await api.updateConsents(
+        baseVersion: consent.version,
+        changes: [
+          for (final topic in ShareTopics.all)
+            ConsentChange(
+              capability: Capabilities.shareTopic,
+              topic: topic,
+              allowed: false,
+            ),
+        ],
+      );
+      lastError = null;
+      await loadDigests();
+      notifyListeners();
+      return true;
+    } on ApiException catch (error) {
+      if (error.code == 'consent_version_conflict') await loadConsents();
+      _fail(error);
+      notifyListeners();
+      return false;
+    }
+  }
+
   // -- digest --------------------------------------------------------------
   Future<Digest?> digestForSeniorPreview() async =>
       digests.isEmpty ? null : digests.first;
@@ -1297,6 +1401,7 @@ class AppState extends ChangeNotifier {
     memories = <MemoryItem>[];
     activityFeed = ActivityFeed.empty;
     digests = <Digest>[];
+    notifications = <AppNotification>[];
     proposals = <ScheduleProposal>[];
     schedule = CheckinSchedule.empty;
     eligibility = CheckinEligibility.unknown;
@@ -1347,6 +1452,9 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     invitations.dispose();
+    final source = speaker;
+    if (source is SpeechStatusSource)
+      (source as SpeechStatusSource).playback.removeListener(_speechChanged);
     speaker.dispose();
     microphone.dispose();
     super.dispose();

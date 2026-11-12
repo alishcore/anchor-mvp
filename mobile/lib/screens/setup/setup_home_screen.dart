@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../l10n/strings.dart';
@@ -23,8 +25,55 @@ import '../senior/settings_screen.dart';
 /// you read top to bottom — a note that says what this device is for, a read-out
 /// of the configuration it is responsible for, then rows that open. One filled
 /// jade action per screen (connect the AI); everything else is a row.
-class SetupHomeScreen extends StatelessWidget {
+class SetupHomeScreen extends StatefulWidget {
   const SetupHomeScreen({super.key, required this.state});
+  final AppState state;
+  @override
+  State<SetupHomeScreen> createState() => _SetupHomeScreenState();
+}
+
+class _SetupHomeScreenState extends State<SetupHomeScreen>
+    with WidgetsBindingObserver {
+  Timer? _timer;
+  bool _polling = false;
+  bool _foreground = true;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _timer = Timer.periodic(const Duration(seconds: 60), (_) => _poll());
+  }
+
+  Future<void> _poll() async {
+    if (!_foreground || _polling || !widget.state.isCaregiver) return;
+    _polling = true;
+    try {
+      await widget.state.loadDigests();
+      await widget.state.loadNotifications();
+    } finally {
+      _polling = false;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    if (_foreground) _poll();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => _SetupHub(state: widget.state);
+}
+
+class _SetupHub extends StatelessWidget {
+  const _SetupHub({required this.state});
 
   final AppState state;
 
@@ -69,6 +118,17 @@ class SetupHomeScreen extends StatelessWidget {
               _aiPanel(context, l),
               const SizedBox(height: 18),
               _familySection(context, l),
+              if (state.isCaregiver)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    l.t(
+                      '未读简报提醒：${state.unreadDigestCount}。打开应用时每分钟检查一次。',
+                      'Unread update reminders: ${state.unreadDigestCount}. Checked each minute while the app is open.',
+                    ),
+                    key: const Key('unread-digests'),
+                  ),
+                ),
               const SizedBox(height: 18),
               _recordsSection(l),
               const SizedBox(height: 8),

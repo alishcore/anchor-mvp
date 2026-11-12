@@ -1,3 +1,10 @@
+> Update from the TA5 review: new source adds senior My choices, on-demand
+> report generation/publication, a family week selector, unread reminders and
+> refresh. See docs/ta5-demo-checklist.md and DECISIONS.md. Older statements below
+> about absent personal controls or generation endpoints are historical. Existing
+> binaries are unchanged and require rebuilding. No new physical-device or user
+> testing is claimed.
+
 # Anchor 交接说明：电脑端给老人、手机端给家人
 
 > 架构调整日期：2026-11-10（同日完成老人端整体 UI 重做）

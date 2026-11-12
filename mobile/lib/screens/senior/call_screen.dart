@@ -117,6 +117,15 @@ class _CallScreenState extends State<CallScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
+          Text(
+            l.t(
+              '确认后会打开设备上的电话应用。如果无法拨号，号码会留在屏幕上。',
+              'After confirmation, the device’s calling app opens. If it cannot dial, the number stays visible.',
+            ),
+            key: const Key('call-device-explanation'),
+            style: AnchorTheme.reading,
+          ),
+          const SizedBox(height: 12),
           if (state.offline)
             StatusBanner(
               l: l,

@@ -288,7 +288,8 @@ void main() {
       AnchorTheme.jade,
     );
     expect(find.byKey(const Key('talk-mic-ring')), findsNothing);
-    expect(statusText(tester).data, L.zh.micOn);
+    expect(state.recording, isFalse);
+    expect(statusText(tester).data, '麦克风已关闭，点按后说话。');
     expect(
       find.descendant(of: mic, matching: find.text(L.zh.startTalking)),
       findsOneWidget,

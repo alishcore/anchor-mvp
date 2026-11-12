@@ -8,6 +8,8 @@ import '../../widgets/anchor_scaffold.dart';
 import '../../widgets/inline_activity_card.dart';
 import '../../widgets/status_banner.dart';
 import 'settings_screen.dart';
+import 'choices_screen.dart';
+import '../../services/speaker.dart';
 
 /// The conversation screen: microphone state, captions, Repeat, Stop and an
 /// always-available text fallback (SPEC §9, S2/S6/S7).
@@ -312,17 +314,25 @@ class _TalkScreenState extends State<TalkScreen> {
                     // On the appliance the permission has to be turned on from
                     // the family phone, so the banner says that instead of
                     // offering a Settings button this build does not have.
-                    body: state.policy.setupApp
-                        ? l.talkConsentNeeded
-                        : l.talkConsentNeededOnPhone,
-                    extraAction: state.policy.setupApp
-                        ? OutlinedButton.icon(
-                            key: const Key('talk-open-settings'),
-                            onPressed: _openSettings,
-                            icon: const Icon(Icons.settings, size: 28),
-                            label: Text(l.goToSettings),
-                          )
-                        : null,
+                    body: l.t(
+                      '您可以在“我的选择”中允许云端语音处理。',
+                      'You can allow cloud voice processing in My choices.',
+                    ),
+                    extraAction: OutlinedButton.icon(
+                      key: const Key('talk-open-settings'),
+                      onPressed: state.policy.setupApp
+                          ? _openSettings
+                          : () async {
+                              await Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => ChoicesScreen(state: state),
+                                ),
+                              );
+                              if (mounted) await _ensureSession();
+                            },
+                      icon: const Icon(Icons.verified_user_outlined, size: 28),
+                      label: Text(l.t('我的选择', 'My choices')),
+                    ),
                   )
                 else if (state.offline)
                   StatusBanner(
@@ -438,9 +448,24 @@ class _TalkScreenState extends State<TalkScreen> {
     final on = asrReady && state.hasActiveSession && !state.recording;
     final recording = state.recording;
     final color = recording || on ? AnchorTheme.ink : AnchorTheme.inkSoft;
-    final label = recording
+    final label = _stoppedLocally
+        ? l.stoppedTitle
+        : recording
         ? l.listening
-        : (!asrReady ? l.micNotConnected : (on ? l.micOn : l.micOff));
+        : state.speechPhase == SpeechPhase.playing
+        ? l.t('正在朗读，随时可以停止。', 'Speaking. You can stop at any time.')
+        : state.speechPhase == SpeechPhase.fallback
+        ? l.t(
+            '正在尝试系统语音。您也可以阅读文字。',
+            'Trying the device voice. You can also read the reply.',
+          )
+        : state.speechPhase == SpeechPhase.preparing
+        ? l.t('正在准备语音，文字已显示。', 'Preparing the voice; you can read the reply.')
+        : state.sendingTurn
+        ? l.t('正在处理，您随时可以停止。', 'Processing. You can stop at any time.')
+        : (!asrReady
+              ? l.micNotConnected
+              : l.t('麦克风已关闭，点按后说话。', 'Microphone off. Tap to speak.'));
     return Semantics(
       label: label,
       liveRegion: true,

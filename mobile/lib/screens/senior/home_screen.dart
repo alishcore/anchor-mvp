@@ -11,6 +11,7 @@ import '../../widgets/anchor_scaffold.dart';
 import '../../widgets/invitation_card.dart';
 import '../../widgets/status_banner.dart';
 import 'call_screen.dart';
+import 'choices_screen.dart';
 import 'settings_screen.dart';
 import 'talk_screen.dart';
 
@@ -188,6 +189,17 @@ class _SeniorHomeScreenState extends State<SeniorHomeScreen> with RouteAware {
                   ),
                 ),
                 _secondaryActions(context, l, wide),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  key: const Key('primary-choices'),
+                  icon: const Icon(Icons.verified_user_outlined),
+                  label: Text(l.t('我的选择', 'My choices')),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ChoicesScreen(state: state),
+                    ),
+                  ),
+                ),
                 if (state.policy.setupApp) ...<Widget>[
                   const SizedBox(height: 12),
                   _settingsButton(context, l),

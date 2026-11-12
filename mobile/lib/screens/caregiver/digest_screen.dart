@@ -26,6 +26,7 @@ class DigestScreen extends StatefulWidget {
 
 class _DigestScreenState extends State<DigestScreen> {
   bool _loading = false;
+  int? _selectedId;
 
   @override
   void initState() {
@@ -35,9 +36,11 @@ class _DigestScreenState extends State<DigestScreen> {
 
   Future<void> _load() async {
     if (!mounted) return;
-    if (widget.state.digests.isNotEmpty) return;
+    if (_loading) return;
     setState(() => _loading = true);
+    // Always re-fetch: current consent may have changed since this screen opened.
     await widget.state.loadDigests();
+    await widget.state.loadNotifications();
     if (!mounted) return;
     setState(() => _loading = false);
   }
@@ -56,14 +59,29 @@ class _DigestScreenState extends State<DigestScreen> {
   Widget build(BuildContext context) {
     final state = AnchorScope.of(context);
     final l = state.l;
-    final digest = state.digests.isEmpty ? null : state.digests.first;
+    final selected = state.digests.where((d) => d.id == _selectedId);
+    final digest = selected.isNotEmpty
+        ? selected.first
+        : state.digests.isEmpty
+        ? null
+        : state.digests.first;
     final contact = state.digestContact;
     final period = digest == null || digest.periodStart == null
         ? null
         : '${digest.periodStart} – ${digest.periodEnd ?? ''}';
 
     return Scaffold(
-      appBar: AppBar(title: Text(l.caregiverDigestTitle)),
+      appBar: AppBar(
+        title: Text(l.caregiverDigestTitle),
+        actions: [
+          IconButton(
+            key: const Key('refresh-digests'),
+            tooltip: l.retry,
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
@@ -89,6 +107,35 @@ class _DigestScreenState extends State<DigestScreen> {
                   title: state.lastErrorText ?? l.unknownError,
                   onRetry: _load,
                 ),
+              Text(
+                l.t(
+                  '在同一网络连接时刷新查看。此版本不发送手机推送。',
+                  'Refresh while connected to the same network. This version does not send push notifications.',
+                ),
+              ),
+              for (final notice in state.notifications.where(
+                (n) => n.kind == 'digest_ready' && n.isUnread,
+              ))
+                ListTile(
+                  key: ValueKey('digest-notice-${notice.id}'),
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(l.t('有新的家人简报', 'A family update is ready')),
+                  trailing: TextButton(
+                    onPressed: () => state.markNotificationRead(notice.id),
+                    child: Text(l.t('标为已读', 'Mark read')),
+                  ),
+                ),
+              if (state.digests.length > 1) ...[
+                HubSectionLabel(label: l.t('选择一个星期', 'Choose a week')),
+                for (final week in state.digests)
+                  OutlinedButton(
+                    key: ValueKey('select-digest-${week.id}'),
+                    onPressed: () => setState(() => _selectedId = week.id),
+                    child: Text(
+                      '${week.periodStart ?? ""} — ${week.periodEnd ?? ""}',
+                    ),
+                  ),
+              ],
               if (state.digestFeatureMissing)
                 _quiet(l.caregiverDigestUnavailable)
               else if (digest == null)

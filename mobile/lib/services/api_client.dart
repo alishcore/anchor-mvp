@@ -615,6 +615,12 @@ class ApiClient {
   Future<DigestList> digests() async =>
       DigestList.fromResponse(await _send('GET', '/digests'));
 
+  Future<Digest> generateDigest() async =>
+      Digest.fromJson(asMap(await _send('POST', '/digests/generate')));
+
+  Future<Digest> publishDigest(int id) async =>
+      Digest.fromJson(asMap(await _send('POST', '/digests/$id/publish')));
+
   Future<Digest> digest(int id) async =>
       Digest.fromJson(asMap(await _send('GET', '/digests/$id')));
 
